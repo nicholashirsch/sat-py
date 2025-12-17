@@ -1,4 +1,3 @@
-from . import orbits
 import numpy as np
 import scipy as sp
 from abc import ABC, abstractmethod
@@ -42,7 +41,8 @@ class Propagator(ABC):
 
 class Keplerian(Propagator):
     """
-    Propagator which uses Kepler's equation along with f and g series.
+    Propagator which uses Kepler's equation along with f and g series. If eccentricity is greater than 1 automatically
+    switches over to using the hyperbolic eccentric anomaly. The parabolic case is not included.
 
     :ivar fg_constraint: Whether to compute the gdot-series independently (increasing computation time) or to instead
         use the series constraint (faster but less accurate).
@@ -69,39 +69,91 @@ class Keplerian(Propagator):
         initial_position = self.orbit.position.copy()
         initial_velocity = self.orbit.velocity.copy()
         initial_eccentric_anomaly = self.gauss_equation()
+        eccentric_anomaly = initial_eccentric_anomaly
 
         for timestep in range(1, self.time_history.shape[1]):
-            # Compute new eccentric anomaly.
             self.orbit.time += self.step_size
-            eccentric_anomaly = self.kepler_equation(initial_eccentric_anomaly, initial_time)
 
-            # Compute the f and g functions.
-            f_func = (
-                    1 - self.orbit.sm_axis / np.linalg.norm(initial_position)
-                        * (1 - np.cos(eccentric_anomaly - initial_eccentric_anomaly))
-            )
-            g_func = (
-                    (self.orbit.time - initial_time) - 1 / np.sqrt(self.orbit.grav_param / self.orbit.sm_axis ** 3)
-                        * (eccentric_anomaly - initial_eccentric_anomaly
-                            - np.sin(eccentric_anomaly - initial_eccentric_anomaly))
-            )
+            # -------------
+            # ELLIPTIC CASE
+            # -------------
+            if self.orbit.eccentricity < 1:  # Elliptical case.
+                # Compute new eccentric anomaly. Use the previous eccentric anomaly as the initial guess for the
+                # root-finder.
+                eccentric_anomaly = self.kepler_equation(
+                    initial_eccentric_anomaly=initial_eccentric_anomaly,
+                    initial_guess=eccentric_anomaly,
+                    initial_time=initial_time
+                )
 
-            # Compute new position.
-            self.orbit.position = f_func * initial_position + g_func * initial_velocity
-
-            # Compute fdot and gdot functions.
-            fdot_func = (
-                -np.sqrt(self.orbit.grav_param * self.orbit.sm_axis)
-                    / (np.linalg.norm(initial_position) * np.linalg.norm(self.orbit.position))
-                    * np.sin(eccentric_anomaly - initial_eccentric_anomaly)
-            )
-            if self.fg_constraint:  # Only compute gdot function manually if constraint usage is disabled.
-                gdot_func = (g_func * fdot_func + 1) / f_func
-            else:
-                gdot_func = (
-                        1 - self.orbit.sm_axis / np.linalg.norm(self.orbit.position)
+                # Compute the f and g functions.
+                f_func = (
+                        1 - self.orbit.sm_axis / np.linalg.norm(initial_position)
                             * (1 - np.cos(eccentric_anomaly - initial_eccentric_anomaly))
                 )
+                g_func = (
+                        self.orbit.time - initial_time - 1 / np.sqrt(self.orbit.grav_param / self.orbit.sm_axis ** 3)
+                            * (eccentric_anomaly - initial_eccentric_anomaly
+                                - np.sin(eccentric_anomaly - initial_eccentric_anomaly))
+                )
+
+                # Compute new position.
+                self.orbit.position = f_func * initial_position + g_func * initial_velocity
+
+                # Compute fdot and gdot functions.
+                fdot_func = (
+                    -np.sqrt(self.orbit.grav_param * self.orbit.sm_axis)
+                        / (np.linalg.norm(initial_position) * np.linalg.norm(self.orbit.position))
+                        * np.sin(eccentric_anomaly - initial_eccentric_anomaly)
+                )
+                if self.fg_constraint:  # Only compute gdot function manually if constraint usage is disabled.
+                    gdot_func = (g_func * fdot_func + 1) / f_func
+                else:
+                    gdot_func = (
+                            1 - self.orbit.sm_axis / np.linalg.norm(self.orbit.position)
+                                * (1 - np.cos(eccentric_anomaly - initial_eccentric_anomaly))
+                    )
+
+            # ---------------
+            # HYPERBOLIC CASE
+            # ---------------
+            else:
+                # Compute new eccentric anomaly. Use the previous eccentric anomaly as the initial guess for the
+                # root-finder.
+                eccentric_anomaly = self.kepler_equation(
+                    initial_eccentric_anomaly=initial_eccentric_anomaly,
+                    initial_guess=eccentric_anomaly,
+                    initial_time=initial_time
+                )
+
+                # Compute f and g functions.
+                f_func = (
+                        1 - self.orbit.sm_axis / np.linalg.norm(initial_position)
+                            * (1 - np.cosh(eccentric_anomaly - initial_eccentric_anomaly))
+                )
+                g_func = (
+                        self.orbit.time - initial_time
+                            - 1 / np.sqrt(self.orbit.grav_param / (-self.orbit.sm_axis) ** 3)
+                            * (np.sinh(eccentric_anomaly - initial_eccentric_anomaly)
+                                - (eccentric_anomaly - initial_eccentric_anomaly))
+                )
+
+                # Compute new position.
+                self.orbit.position = f_func * initial_position + g_func * initial_velocity
+
+                # Compute fdot and gdot functions.
+                fdot_func = (
+                        -np.sqrt(self.orbit.grav_param * -self.orbit.sm_axis)
+                        / (np.linalg.norm(initial_position) * np.linalg.norm(self.orbit.position))
+                        * np.sinh(eccentric_anomaly - initial_eccentric_anomaly)
+                )
+                if self.fg_constraint:  # Only compute gdot function manually if constraint usage is disabled.
+                    gdot_func = (g_func * fdot_func + 1) / f_func
+                else:
+                    gdot_func = (
+                            1 - self.orbit.sm_axis / np.linalg.norm(self.orbit.position)
+                            * (1 - np.cosh(eccentric_anomaly - initial_eccentric_anomaly))
+                    )
 
             # Compute new velocities.
             self.orbit.velocity = fdot_func * initial_position + gdot_func * initial_velocity
@@ -118,30 +170,48 @@ class Keplerian(Propagator):
         :return: Eccentric anomaly.
         """
 
-        return (
-                2 * np.arctan(np.sqrt((1 - self.orbit.eccentricity) / (1 + self.orbit.eccentricity))
-                    * np.tan(self.orbit.true_anomaly / 2))
-        )
+        if self.orbit.eccentricity < 1:  # Elliptic case.
+            return (
+                    2 * np.arctan(np.sqrt((1 - self.orbit.eccentricity) / (1 + self.orbit.eccentricity))
+                        * np.tan(self.orbit.true_anomaly / 2))
+            )
+        else:  # Hyperbolic case.
+            return (
+                    2 * np.arctanh(np.sqrt((self.orbit.eccentricity - 1) / (self.orbit.eccentricity + 1))
+                                  * np.tan(self.orbit.true_anomaly / 2))
+            )
 
     def kepler_equation(
             self,
             initial_eccentric_anomaly,
+            initial_guess,
             initial_time,
     ):
         """
         Function used to compute the new eccentric anomaly given the current eccentric anomaly and the desired time
         increment. Kepler's equation is transcendental wrt. eccentric anomaly so root-finding via sp.optimize.newton()
-        is used to solve for it.
+        is used to solve for it. The ideal initial guess is just the eccentric anomaly on the previous timestep.
+
+        :param initial_eccentric_anomaly: Eccentric anomaly at epoch.
+        :param initial_guess: Eccentric anomaly from the last iteration.
+        :param initial_time: Time at epoch.
 
         :return: New eccentric anomaly at the current time plus the desired timestep.
         """
 
         # Root-finding.
-        eq = lambda x: (
-                np.sqrt(self.orbit.grav_param / self.orbit.sm_axis ** 3) * (self.orbit.time - initial_time)
-                    + initial_eccentric_anomaly - self.orbit.eccentricity * np.sin(initial_eccentric_anomaly)
-                    -  x + self.orbit.eccentricity * np.sin(x)
-        )
-        eccentric_anomaly = sp.optimize.newton(eq, initial_eccentric_anomaly, tol=self.tol)
+        if self.orbit.eccentricity < 1:  # Elliptic case.
+            eq = lambda x: (
+                    np.sqrt(self.orbit.grav_param / self.orbit.sm_axis ** 3) * (self.orbit.time - initial_time)
+                        + initial_eccentric_anomaly - self.orbit.eccentricity * np.sin(initial_eccentric_anomaly)
+                        -  x + self.orbit.eccentricity * np.sin(x)
+            )
+        else:  # Hyperbolic case.
+            eq = lambda x: (
+                    np.sqrt(self.orbit.grav_param / (-self.orbit.sm_axis) ** 3) * (self.orbit.time - initial_time)
+                    + self.orbit.eccentricity * np.sinh(initial_eccentric_anomaly) - initial_eccentric_anomaly
+                    - self.orbit.eccentricity * np.sinh(x) + x
+            )
+        eccentric_anomaly = sp.optimize.newton(eq, initial_guess, tol=self.tol)
 
         return eccentric_anomaly
