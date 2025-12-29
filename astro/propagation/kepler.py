@@ -13,13 +13,14 @@ class Keplerian(base.Propagator):
 
     :ivar fg_constraint: Whether to compute the gdot-series independently (increasing computation time) or to instead
         use the series constraint (faster but less accurate).
-    :ivar tol: Tolerance to use when solving Kepler's equation.
+    :ivar solver_tol: Tolerance to use when solving Kepler's equation.
     """
 
-    def __init__(self, orbit, final_time, step_size, tol=1e-8, fg_constraint=True):
+    def __init__(self, step_size=None, solver_tol=1e-8, fg_constraint=True):
         self.fg_constraint = fg_constraint
-        self.tol = tol
-        super().__init__(orbit, final_time, step_size)
+        self.solver_tol = solver_tol
+
+        super().__init__(step_size)
 
     def propagate(self):
         """
@@ -179,6 +180,6 @@ class Keplerian(base.Propagator):
                     + self.orbit.eccentricity * np.sinh(initial_eccentric_anomaly) - initial_eccentric_anomaly
                     - self.orbit.eccentricity * np.sinh(x) + x
             )
-        eccentric_anomaly = sp.optimize.newton(eq, initial_guess, tol=self.tol)
+        eccentric_anomaly = sp.optimize.newton(eq, initial_guess, tol=self.solver_tol)
 
         return eccentric_anomaly

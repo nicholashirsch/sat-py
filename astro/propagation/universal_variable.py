@@ -27,9 +27,7 @@ class UniversalVariable(base.Propagator):
 
     def __init__(
             self,
-            orbit,
-            final_time,
-            step_size,
+            step_size=None,
             solver_tol=1e-8,
             stumpff_tol=1e-8,
             stumpff_series_length=10,
@@ -42,7 +40,7 @@ class UniversalVariable(base.Propagator):
 
         self.inverse_sm_axis = ...
 
-        super().__init__(orbit, final_time, step_size)
+        super().__init__(step_size)
 
     def propagate(self):
         """
@@ -159,11 +157,11 @@ class UniversalVariable(base.Propagator):
         Function which yields the universal variable at the current time (as stored by self.orbit.time).
 
         :param initial_time: Time at start of propagation
-        :param initial_position: Position at start of propagation, (3, ) vector.
-        :param initial_velocity: Velocity at start of propagation, (3, ) vector.
+        :param initial_position: Position at start of propagation, a (3, ) vector.
+        :param initial_velocity: Velocity at start of propagation, a (3, ) vector.
         :param initial_guess: Initial guess for the universal variable.
 
-        :return: The universal variable.
+        :return: New universal variable at the current time plus the desired timestep.
         """
 
         # Create the function to use in root-finding.
