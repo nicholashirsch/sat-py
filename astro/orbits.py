@@ -1,6 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
 from dynamics import dcms
+from . import propagation
+import scipy as sp
 
 
 class Orbit:
@@ -99,15 +101,26 @@ class Orbit:
             position2: NDArray[float],
             position3: NDArray[float],
             time: float,
+            current_position_index: int = 2,
             grav_param: float = 3.986004418e14  # Default to Earth in units of m^3/s^2.
     ):
         """
         Alternative constructor which returns the position and velocity given three co-planar position vectors. The
         process of determining the conic whose origin lies at the center of three co-planar vectors is known as Gibbs'
         method.
-            The three position vectors passed in should be (3, ) numpy arrays.
 
-        NOTE: position1 should reflect the current position of the satellite.
+        NOTE: The three positon vectors must be ordered from earliest the latest in time when they are passed as
+        arguments in order for Gibbs' method to encode retrograde/prograde correctly.
+
+        [GIBBS METHOD PARAMETERS]
+        :param position1:
+        :param position2:
+        :param position3:
+        :param current_position_index: Which position vector the satellite currently is located at.
+
+        [OTHER PARAMETERS]
+        :param time:
+        :param grav_param:
         """
 
         # Form the three vectors used in Gibbs' method. The first two correspond to parameter = vec1 / vec2, and the
@@ -124,19 +137,145 @@ class Orbit:
                     + (np.linalg.norm(position1) - np.linalg.norm(position2)) * position3
         )
 
-        # Compute the velocity corresponding to position1.
+        # Compute the velocity corresponding to current position.
+        match current_position_index:  # Select current position.
+            case 1:
+                position = position1
+            case 2:
+                position = position2
+            case 3:
+                position = position3
         velocity = (
-                1 / np.linalg.norm(position1)
+                1 / np.linalg.norm(position)
                     * np.sqrt(grav_param / (np.linalg.norm(gibbs_vec1) * np.linalg.norm(gibbs_vec2)))
-                    * np.cross(gibbs_vec2, position1)
+                    * np.cross(gibbs_vec2, position)
                     + np.sqrt(grav_param / (np.linalg.norm(gibbs_vec1) * np.linalg.norm(gibbs_vec2))) * gibbs_vec3
         )
 
-        return cls(position1, velocity, time, grav_param)
+        return cls(position, velocity, time, grav_param)
 
     @classmethod
-    def from_lambert(cls):
-        pass
+    def from_lambert(
+            cls,
+            position1: NDArray[float],
+            position2: NDArray[float],
+            tof: float,
+            time: float,
+            grav_param: float = 3.986004418e14,  # Default to Earth in units of m^3/s^2.
+            current_position_index: int = 1,
+            short_transfer: bool = True,
+            prograde: bool = True,
+            fg_constraint: bool = True,
+            solver_tol=1e-8,
+            stumpff_tol=1e-8,
+            stumpff_series_length=10,
+    ):
+        """
+        A universal variable implementation of Gauss' method to solving Lambert's problem. Lambert's problem involves
+        finding the orbit which corresponds to two position vectors and the time-of-flight between them (whether that
+        involved traveling the long or short route between them must be specified by the user).
+            To do this, the f and g functions and their derivatives are treated as three equations used to solve for
+        three unknowns, in this case the Stumpff parameter, universal variable, and a third term termed here as the
+        Lambert parameter. These roughly translate to the change in eccentric anomaly, semi-major axis, and semi-latus
+        rectum. Since these equations are transcendental in the Stumpff parameter, a root-finding method is used to
+        solve them in which a value for the Stumpff parameter is guessed, all three equations are solved and then
+        these are plugged into Kepler's equation where time is set equal to the time-of-flight.
+            Once the correct value of the parameter is found, the f and g functions are constructed and used to solve
+        for the velocity at both points.
+
+        [LAMBERT PROBLEM PARAMETERS]
+        :param position1:
+        :param position2:
+        :param tof: Time-of-flight between the two positions.
+        :param current_position_index: Which position vector the satellite currently is located at.
+        :param short_transfer: Whether the satellite took the long or short arc between the two positions
+        :param prograde: Whether satellite is in prograde, determines the sign on Lambert's constant.
+        :param fg_constraint: Whether to compute the gdot-series independently (increasing computation time) or to
+            instead use the series constraint (faster but less accurate).
+        :param solver_tol: Tolerance to use when solving Kepler's equation.
+        :param stumpff_tol: Minimum absolute value of the Stumpff parameter before switching to the infinite series
+            definition of the Stumpff series.
+        :param stumpff_series_length: How many terms to evaluate in the Stumpff series when using their infinite series
+            definitions.
+
+        [OTHER PARAMETERS]
+        :param time: Global time at current position vector, not the same as tof.
+        :param grav_param:
+        """
+
+        # Compute the true anomaly between the two position vectors, then use the short_transfer flag to decide if the
+        # short or large arc solution to Lamber's problem should be used.
+        true_anomaly = (
+                np.arccos(np.dot(position1, position2) / (np.linalg.norm(position1) * np.linalg.norm(position2)))
+        )
+        if not short_transfer:
+            true_anomaly = 2 * np.pi - true_anomaly
+        if not prograde:
+            true_anomaly *= -1
+
+        # Define a constant to make carrying terms easier.
+        lambert_const = (
+                np.sqrt(np.linalg.norm(position1) * np.linalg.norm(position2)) * np.sin(true_anomaly)
+                / np.sqrt(1 - np.cos(true_anomaly))
+        )
+
+        # The UniversalVariable class contains a method called stumpff_funcs() which given a value of the Stumpff
+        # parameter evaluates the Stumpff series. We need this function so we're going to perform a pseudo-instantiation
+        # of this class to get access to it, only passing in attributes relevant to calling stumpff_funcs().
+        uv_propagator = propagation.universal_variable.UniversalVariable(
+            stumpff_tol=stumpff_tol,
+            stumpff_series_length=stumpff_series_length,
+        )
+
+        # Solve Lambert's problem using a root-finding method to get the change in the Stumpff parameter between the
+        # two positions.
+        def eq(x):
+            s_func, c_func = uv_propagator.stumpff_funcs(x)
+            lambert_param = (
+                    np.linalg.norm(position1) + np.linalg.norm(position2)
+                        - lambert_const * (1 - x * s_func) / np.sqrt(c_func)
+            )
+            universal_variable = np.sqrt(lambert_param / c_func)
+
+            return (
+                tof - (universal_variable ** 3 * s_func + lambert_const * np.sqrt(lambert_param))
+                    / np.sqrt(grav_param)
+            )
+        stumpff_param = sp.optimize.newton(eq, 0, tol=solver_tol)
+
+        # Compute the f and g functions from the resultant change in the Stumpff parameter.
+        s_func, c_func = uv_propagator.stumpff_funcs(stumpff_param)
+        lambert_param = (
+                np.linalg.norm(position1) + np.linalg.norm(position2)
+                - lambert_const * (1 - stumpff_param * s_func) / np.sqrt(c_func)
+        )
+        universal_variable = np.sqrt(lambert_param / c_func)
+
+        f_func = 1 - universal_variable ** 2 / np.linalg.norm(position1) * c_func
+        g_func = tof - universal_variable ** 3 / np.sqrt(grav_param) * s_func
+        gdot_func = 1 - universal_variable ** 2 / np.linalg.norm(position2) * c_func
+        if fg_constraint:
+            fdot_func = (f_func * gdot_func - 1) / g_func
+        else:
+            fdot_func = (
+                    -np.sqrt(grav_param) / (np.linalg.norm(position1) * np.linalg.norm(position2))
+                        * universal_variable * (1 - stumpff_param * s_func)
+            )
+
+        # Compute the velocity corresponding to current position.
+        match current_position_index:
+            case 1:
+                position = position1
+                velocity = (position2 - f_func * position1) / g_func
+            case 2:
+                position = position2
+                if fg_constraint:  # Implicitly uses fg-constraint to eliminate fdot_func and hence velocity1.
+                    velocity = (gdot_func * position2 - position1) / g_func
+                else:
+                    velocity1 = (position2 - f_func * position1) / g_func
+                    velocity = fdot_func * position1 + gdot_func * velocity1
+
+        return cls(position, velocity, time, grav_param)
 
     # -------------------------------
     # ORBITAL ELEMENT UPDATES METHODS
