@@ -277,9 +277,9 @@ class Orbit:
 
         return cls(position, velocity, time, grav_param)
 
-    # -------------------------------
-    # ORBITAL ELEMENT UPDATES METHODS
-    # -------------------------------
+    # ------------------------------
+    # ORBITAL ELEMENT UPDATE METHODS
+    # ------------------------------
     # NOTE: Unless you know what you are doing just call update_all() because the order these are run in matters.
     def update_spf_angular_momentum(self):
         self.spf_angular_momentum = np.cross(self.position, self.velocity)
