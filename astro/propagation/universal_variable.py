@@ -5,7 +5,6 @@ import scipy as sp
 from . import logging
 
 
-# TODO: Store universal variable results.
 class UniversalVariablePropagator(base.Propagator):
     """
     Propagator which uses the universal variable formulation of Kepler's equation along with f and g series. This makes

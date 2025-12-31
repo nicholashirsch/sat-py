@@ -3,8 +3,6 @@ import numpy as np
 import scipy as sp
 
 
-# TODO:
-#  - Add error handling for parabolic and near-parabolic cases.
 class KeplerPropagator(base.Propagator):
     """
     Propagator which uses Kepler's equation along with f and g series. If eccentricity is greater than 1 automatically
@@ -44,6 +42,12 @@ class KeplerPropagator(base.Propagator):
             4) Form the fdot and gdot functions and use them and the new position to compute the new velocity.
             5) Repeat 2-4 until the final time is reached.
         """
+
+        # Warning for near-parabolic orbits.
+        if abs(1 - self.orbit.eccentricity) < 0.05:
+            raise Warning("This orbit is near-parabolic and as a result convergence using KeplerSolver will be "
+                          "inaccurate at best if it occurs at all. Switching to a different propagator suited to these"
+                          "cases like UniversalVariablePropagator is recommended.")
 
         # Get initial values used for propagation.
         initial_time = self.orbit.time
