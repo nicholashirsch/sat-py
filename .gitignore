@@ -1,5 +1,5 @@
 # Dev test files.
-/testing
+testing/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
