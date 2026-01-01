@@ -218,24 +218,15 @@ class Orbit:
         orbit = cls(position, velocity, time, grav_param, track_equinoctial, _default=False)
 
         # Store/compute orbital elements.
-        sm_axis, eccentricity, raan, argp, inclination, true_anomaly = conversions.equinoctial_2_classical(
-            sl_rectum=sl_rectum,
-            e_component1=e_component1,
-            e_component2=e_component2,
-            n_component1=n_component1,
-            n_component2=n_component2,
-            true_latitude=true_latitude,
-        )
-
         orbit.update_spf_angular_momentum()
         orbit.update_eccentricity()
         orbit.update_nodal_vec()
         orbit.sl_rectum = sl_rectum
-        orbit.sm_axis = sm_axis
-        orbit.raan = raan
-        orbit.inclination = inclination
-        orbit.argp = argp
-        orbit.true_anomaly = true_anomaly
+        orbit.update_sm_axis()
+        orbit.update_raan()
+        orbit.update_inclination()
+        orbit.update_argp()
+        orbit.update_true_anomaly()
         orbit.update_longp()
         orbit.update_argl()
         orbit.true_latitude = true_latitude
