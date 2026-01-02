@@ -1,8 +1,7 @@
 # KeplerPy
 An open-source library designed for rapid spacecraft mission design and iteration.
 
-**Documentation:** https://keplerpy.github.io/
-
+**Documentation:** https://keplerpy.github.io/  
 **Source code:** https://github.com/keplerpy/keplerpy
 
 #### Current features
