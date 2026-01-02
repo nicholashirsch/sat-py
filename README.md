@@ -1,13 +1,16 @@
 # KeplerPy
 An open-source library designed for rapid spacecraft mission design and iteration.
 
-Current features:
+**Documentation:**
+**Source code:**
+
+### Current features
   - Keplerian orbit propagation through traditional and universal variable frameworks.
   - Perturbed orbit propagation.
   - Solvers for Lamberts problem and Gibbs method.
   - Orbit characterization -- including classical and equinoctial elements.
 
-Upcoming features:
+### Upcoming features:
   - Manuver planning.
   - Perturbation models -- including non-spherical Earth, drag, and solar wind.
   - Attitude dynamics.
