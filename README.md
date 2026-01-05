@@ -1,7 +1,8 @@
 # HohmannPy
 An open-source library designed for rapid spacecraft mission design and iteration.
 
-**Documentation:** https://keplerpy.github.io/  
+**Website:** https://hohmannpy.github.io/
+**Documentation:** https://hohmannpy.github.io/docs/
 **Source code:** https://github.com/keplerpy/keplerpy
 
 #### Current features
