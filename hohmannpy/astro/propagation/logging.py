@@ -8,13 +8,15 @@ if TYPE_CHECKING:
 
 
 # TODO:
-#  - Fix the exceptions for propagator-specific loggers.
 #  - Add labels to all these variables for when they are stored in a .csv.
 class Logger(ABC):
     """
     Base class for all loggers. A Logger is meant to be instantiated in the setup() method of a Propagator and is called
     every iteration of a Propagator's propagate() loop to store data regarding the orbit being propagated.
     """
+
+    def __init__(self):
+        pass
 
     @abstractmethod
     def setup(self, propagator: "base.Propagator"):
@@ -51,6 +53,11 @@ class StateLogger(Logger):
     """
     Logs the time and Cartesian state (position and velocity) of the orbit.
     """
+    def __init__(self):
+        self.position_history = None
+        self.velocity_history = None
+        self.time_history = None
+        super().__init__()
 
     def setup(self, propagator: "base.Propagator"):
         self.position_history = np.zeros([3, propagator.timesteps + 1])
@@ -71,6 +78,22 @@ class ElementsLogger(Logger):
     """
     Logs the orbital elements of the orbit.
     """
+
+    def __init__(self):
+        self.sm_axis_history = None
+        self.eccentricity_history = None
+        self.inclination_history = None
+        self.raan_history = None
+        self.argp_history = None
+        self.true_anomaly_history = None
+        self.longp_history = None
+        self.argl_history = None
+        self.true_latitude_history = None
+        self.e_component1_history = None
+        self.e_component2_history = None
+        self.n_component1_history = None
+        self.n_component2_history = None
+        super().__init__()
 
     def setup(self, propagator: "base.Propagator"):
         self.sm_axis_history = np.zeros([1, propagator.timesteps + 1])
@@ -126,10 +149,11 @@ class EccentricAnomalyLogger(Logger):
     Logs the eccentric anomaly of an orbit (for use with KeplerPropagator).
     """
 
-    def setup(self, propagator: "kepler.KeplerPropagator"):
-        # if not isinstance(propagator, kepler.KeplerPropagator):  # Safeguard.
-        #     raise TypeError("Propagator must be of type KeplerPropagator to use the EccentricAnomalyLogger.")
+    def __init__(self):
+        self.eccentric_anomaly_history = None
+        super().__init__()
 
+    def setup(self, propagator: "kepler.KeplerPropagator"):
         self.eccentric_anomaly_history = np.zeros([1, propagator.timesteps + 1])
 
         self.eccentric_anomaly_history[0, 0] = propagator.eccentric_anomaly
@@ -143,12 +167,12 @@ class UniversalVariableLogger(Logger):
     Logs the universal variable and Stumpff parameter (for use with UniversalVariablePropagator).
     """
 
-    def setup(self, propagator: "universal_variable.UniversalVariablePropagator"):
-        # if not isinstance(propagator, universal_variable.UniversalVariablePropagator):  # Safeguard.
-        #     raise TypeError(
-        #         "Propagator must be of type UniversalVariablePropagator to use the UniversalVariableLogger."
-        #     )
+    def __init__(self):
+        self.universal_variable_history = None
+        self.stumpff_param_history = None
+        super().__init__()
 
+    def setup(self, propagator: "universal_variable.UniversalVariablePropagator"):
         self.universal_variable_history = np.zeros([1, propagator.timesteps + 1])
         self.stumpff_param_history = np.zeros([1, propagator.timesteps + 1])
 

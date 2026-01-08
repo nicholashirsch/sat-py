@@ -101,8 +101,8 @@ class CowellPropagator(base.Propagator):
         y5_dot = -self.orbit.grav_param / radius ** 3 * y[2]
 
         # Perturbing forces.
-        if self.perturbing_forces is not None:
-            for perturbing_force in self.perturbing_forces:
+        if self.perturbations is not None:
+            for perturbing_force in self.perturbations:
                 y3_perturb, y4_perturb, y5_perturb = perturbing_force.evaluate(t, y)
                 y3_dot += y3_perturb
                 y4_dot += y4_perturb

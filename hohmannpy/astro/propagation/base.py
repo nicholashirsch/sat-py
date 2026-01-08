@@ -16,7 +16,7 @@ class Propagator(ABC):
 
     :ivar orbit: Orbit to perform propagation on. The position, and velocity, and time attributes of this object
         when it is passed in serve as the initial conditions of the orbit.
-    :ivar perturbing_forces: External forcing terms which cause deviations from the standard two-body equations of
+    :ivar perturbations: External forcing terms which cause deviations from the standard two-body equations of
         motion.
     :ivar final time: When to stop orbit propagation.
     :ivar step_size: Time step size for propagation.
@@ -33,7 +33,7 @@ class Propagator(ABC):
         self.loggers = loggers
 
         self.orbit = None
-        self.perturbing_forces = None
+        self.perturbations = None
         self.final_time = None
         self.timesteps = None
 
@@ -50,7 +50,7 @@ class Propagator(ABC):
     def setup(
             self,
             orbit: orbit.Orbit,
-            perturbing_forces: list[perturbations.Perturbation],
+            perturbations: list[perturbations.Perturbation],
             final_time: float,
     ):
         """
@@ -58,7 +58,7 @@ class Propagator(ABC):
         """
 
         self.orbit = orbit
-        self.perturbing_forces = perturbing_forces
+        self.perturbations = perturbations
 
         # Compute number of timesteps to propagate for and use this information to set up the Loggers.
         self.final_time = final_time

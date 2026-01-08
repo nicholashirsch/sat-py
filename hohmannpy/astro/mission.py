@@ -1,4 +1,4 @@
-from . import propagation, orbit, perturbations
+from . import propagation, orbit, perturbations, time
 from ..ui import rendering
 import numpy as np
 import pandas as pd
@@ -9,15 +9,15 @@ class Mission:
     def __init__(
             self,
             starting_orbit: orbit.Orbit,
-            initial_global_time: float,
-            final_global_time: float,
+            initial_global_time: time.Time,
+            final_global_time: time.Time,
             propagator: propagation.base.Propagator = None,
-            perturbing_forces: list[perturbations.Perturbation] = None,
+            perturbations: list[perturbations.Perturbation] = None,
 
     ):
         # Instantiate all the passed-in attributes.
         self.starting_orbit = starting_orbit
-        self.perturbing_forces = perturbing_forces
+        self.perturbations = perturbations
         self.global_time = initial_global_time
         self.initial_global_time = initial_global_time
         self.final_global_time = final_global_time
@@ -25,7 +25,7 @@ class Mission:
         # For both the propagator a default option exists if the user does not input one, if they did
         # ignore and simply instantiate as normal.
         if propagator is None:
-            if perturbing_forces is None:
+            if perturbations is None:
                 self.propagator = propagation.universal_variable.UniversalVariablePropagator()
             else:
                 self.propagator = propagation.cowell.CowellPropagator()
@@ -42,8 +42,8 @@ class Mission:
 
         self.propagator.setup(
             orbit=self.starting_orbit,
-            perturbing_forces=self.perturbing_forces,
-            final_time=self.final_global_time - self.initial_global_time,
+            perturbations=self.perturbations,
+            final_time=(self.final_global_time.julian_date - self.initial_global_time.julian_date) * 86400,
         )
         self.propagator.propagate()
 

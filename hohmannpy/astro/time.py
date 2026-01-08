@@ -32,6 +32,7 @@ class Time:
     """
 
     def __init__(self, date: str, time: str):
+        # Error checking to make sure date and time are entered correctly.
         if (not date[2] == '/') or (not date[5] == '/'):
             raise ValueError('Invalid time, please enter the date in MM/DD/YYYY format.')
         if (not time[2] == ':') or (not time[5] == ':'):
