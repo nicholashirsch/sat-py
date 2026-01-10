@@ -17,9 +17,11 @@ class RenderEngine:
             self,
             traj: np.ndarray,
             initial_global_time: astro.Time,
-            draw_basis: bool = False,
+            draw_basis: bool = True,
+            draw_skybox: bool = True,
     ):
         self.initial_global_time = initial_global_time
+        self.initial_local_time = None  # Set during initial animation.
         self.base_earth_rotation = None  # Set by draw_earth().
 
         # Create application window.
@@ -45,6 +47,10 @@ class RenderEngine:
             self.scene.add(y_axis)
             self.scene.add(z_axis)
 
+        if draw_skybox:
+            skybox = self.draw_skybox()
+            self.scene.add(skybox)
+
         # Create the camera.
         self.camera = camera.OrbitalCamera(
             fov=50,
@@ -67,11 +73,17 @@ class RenderEngine:
         self.canvas.add_event_handler(self.event_handler, "key_down", "key_up")
 
     def animate(self):
+        earth_rot = 7.292115e-5  # Mean rotation rate of the Earth in radians.
         self.camera.orient()
+        self.earth.local.rotation = la.quat_mul(
+            self.base_earth_rotation,
+            la.quat_from_axis_angle((0, 1, 0), -(time.perf_counter() - self.initial_local_time) * earth_rot),
+        )
         self.renderer.render(self.scene, self.camera)
         self.canvas.request_draw(self.animate)
 
     def render(self):
+        self.initial_local_time = time.perf_counter()
         self.canvas.request_draw(self.animate)
         rendercanvas.auto.loop.run()
 
@@ -128,6 +140,34 @@ class RenderEngine:
         earth.local.rotation = self.base_earth_rotation
 
         return earth
+
+    def draw_skybox(self):
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_right1.png").open("rb") as f:
+            skybox_right1_img = iio.imread(f)
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_left2.png").open("rb") as f:
+            skybox_left2_img = iio.imread(f)
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_top3.png").open("rb") as f:
+            skybox_top3_img = iio.imread(f)
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_bottom4.png").open("rb") as f:
+            skybox_bottom4_img = iio.imread(f)
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_front5.png").open("rb") as f:
+            skybox_front5_img = iio.imread(f)
+        with importlib.resources.files("hohmannpy.resources").joinpath("skybox/skybox_back6.png").open("rb") as f:
+            skybox_back6_img = iio.imread(f)
+
+        skybox_img = np.stack(
+            [skybox_right1_img, skybox_left2_img, skybox_top3_img,
+             skybox_bottom4_img, skybox_front5_img, skybox_back6_img],
+            axis=0
+        )
+        width = skybox_img.shape[1]
+        height = skybox_img.shape[2]
+        skybox = gfx.Background(
+            None,
+            gfx.BackgroundSkyboxMaterial(map=gfx.Texture(skybox_img, dim=2, size=(width, height, 6))),
+        )
+
+        return skybox
 
     def draw_basis(self):
         length = 8000
