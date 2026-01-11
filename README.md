@@ -1,4 +1,4 @@
-# HohmannPy
+![HohmannPy banner](full_logo.png)
 An open-source library designed for rapid spacecraft mission design and iteration.
 
 **Website:** TBD  
