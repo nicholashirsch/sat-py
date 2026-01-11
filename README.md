@@ -1,6 +1,14 @@
-![HohmannPy banner](full_logo.png)
-An open-source library designed for rapid spacecraft mission design and iteration.
+<div style="margin-bottom: 4px;">
+  <img src="images/hohmannpy_banner.png" alt="HohmannPy logo" width="600">
+</div>
 
-**Website:** TBD  
-**Documentation:** TBD  
-**Source code:** https://github.com/hohmannpy/hohmannpy
+<div style="margin-top: 0;">
+  An open-source library designed for rapid spacecraft mission design and iteration.
+</div>
+
+<div style="margin-top: 4px;">
+  <strong>Website:</strong> TBD<br>
+  <strong>Documentation:</strong> TBD<br>
+  <strong>Source code:</strong>
+  <a href="https://github.com/hohmannpy/hohmannpy">https://github.com/hohmannpy/hohmannpy</a>
+</div>
