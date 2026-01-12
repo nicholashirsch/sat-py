@@ -60,7 +60,7 @@ class Mission:
         """
 
         # TODO: Add an error here if simulate() has not yet been called.
-        engine = rendering.RenderEngine(
+        engine = rendering.DynamicRenderEngine(
             traj=self.traj,
             initial_global_time=self.initial_global_time,
         )
