@@ -34,7 +34,8 @@ class Mission:
             self.propagator = propagator
 
         # Pre-instantiate attributes to be assigned later.
-        self.traj = ...
+        self.traj = None
+        self.traj_times = None
 
     def simulate(self):
         """
@@ -52,6 +53,7 @@ class Mission:
         for logger in self.propagator.loggers:
             if isinstance(logger, logging.StateLogger):
                 self.traj = logger.position_history
+                self.traj_times = logger.time_history
                 break
 
     def display(self):
@@ -62,6 +64,7 @@ class Mission:
         # TODO: Add an error here if simulate() has not yet been called.
         engine = rendering.DynamicRenderEngine(
             traj=self.traj,
+            times=self.traj_times,
             initial_global_time=self.initial_global_time,
         )
         engine.render()
