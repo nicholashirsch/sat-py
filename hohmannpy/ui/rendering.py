@@ -396,7 +396,7 @@ class DynamicRenderEngine(RenderEngine):
             traj: np.ndarray,
             times: np.ndarray,
             initial_global_time: astro.Time,
-            draw_basis: bool = True,
+            draw_basis: bool = False,
             draw_skybox: bool = True,
     ):
         # Base installation.

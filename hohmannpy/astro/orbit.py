@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import numpy as np
 from numpy.typing import NDArray
 from . import propagation, conversions
@@ -494,19 +495,19 @@ class Orbit:
     def update_longp(self):
         longp = self.raan + self.argp
         if longp > 2 * np.pi: # Wrap to [0, 2pi]. No need for < 0 wrapping since other angles are already wrapped.
-            longp -= 2 * np.pi
+            longp %= 2 * np.pi
         self.longp = longp
 
     def update_argl(self):
         argl = self.argp + self.true_anomaly
         if argl > 2 * np.pi: # Wrap to [0, 2pi]. No need for < 0 wrapping since other angles are already wrapped.
-            argl -= 2 * np.pi
+            argl %= 2 * np.pi
         self.argl = argl
 
     def update_true_latitude(self):
         true_latitude = self.raan + self.argp + self.true_anomaly
         if true_latitude > 2 * np.pi: # Wrap to [0, 2pi]. No need for < 0 wrapping since other angles are already wrapped.
-            true_latitude -= 2 * np.pi
+            true_latitude %= 2 * np.pi
         self.true_latitude = true_latitude
 
 

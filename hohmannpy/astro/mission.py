@@ -14,6 +14,7 @@ class Mission:
             final_global_time: time.Time,
             propagator: propagation.base.Propagator = None,
             perturbations: list[perturbations.Perturbation] = None,
+            display: str = "dynamic"
 
     ):
         # Instantiate all the passed-in attributes.
@@ -22,6 +23,7 @@ class Mission:
         self.global_time = initial_global_time
         self.initial_global_time = initial_global_time
         self.final_global_time = final_global_time
+        self.display_flag = display
 
         # For both the propagator a default option exists if the user does not input one, if they did
         # ignore and simply instantiate as normal.
@@ -62,11 +64,16 @@ class Mission:
         """
 
         # TODO: Add an error here if simulate() has not yet been called.
-        engine = rendering.DynamicRenderEngine(
-            traj=self.traj,
-            times=self.traj_times,
-            initial_global_time=self.initial_global_time,
-        )
+        if self.display_flag == "dynamic":
+            engine = rendering.DynamicRenderEngine(
+                traj=self.traj,
+                times=self.traj_times,
+                initial_global_time=self.initial_global_time,
+            )
+        else:
+            engine = rendering.RenderEngine(
+                traj=self.traj,
+            )
         engine.render()
 
     def to_csv(self, file_path, fp_accuracy=6):

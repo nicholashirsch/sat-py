@@ -15,6 +15,8 @@ class Perturbation(ABC):
         pass
 
 
+# TODO: Fix issues with code where divisions by sine or cosine take place. This makes J2 computations invalid at certain
+# inclinations.
 class NonSphericalEarth(Perturbation):
     def __init__(self, order: int, degree: int, gmst: float):
         self.order = order
@@ -22,10 +24,10 @@ class NonSphericalEarth(Perturbation):
         self.initial_gmst = gmst
 
         with importlib.resources.files("hohmannpy.resources").joinpath("egm84_c_coeffs.csv").open() as f:
-            self.c_coeffs = np.loadtxt(f, delimiter=",")
+            self.c_coeffs = np.loadtxt(f, delimiter=",")  # n-columns, m-rows, from [0, 180]
 
         with importlib.resources.files("hohmannpy.resources").joinpath("egm84_s_coeffs.csv").open() as f:
-            self.s_coeffs = np.loadtxt(f, delimiter=",")
+            self.s_coeffs = np.loadtxt(f, delimiter=",")  # n-columns, m-rows, from [0, 180]
 
         super().__init__()
 
@@ -83,3 +85,52 @@ class NonSphericalEarth(Perturbation):
         colatitude = np.pi / 2 - np.arctan2(position[2], np.sqrt(position[0] ** 2 + position[1] ** 2))
 
         return colatitude, longitude
+
+
+class AtmosphericDrag(Perturbation):
+    def __init__(self, ballistic_coeff: float, solar_activity: str = "moderate"):
+        super().__init__()
+
+        self.ballistic_coeff = ballistic_coeff
+        self.solar_activity = solar_activity
+
+        match solar_activity:
+            case "low":
+                with importlib.resources.files("hohmannpy.resources").joinpath("circa_12_low_activity.csv").open() as f:
+                    density_curve = np.loadtxt(f, delimiter=",")  # altitude (km), density (kg/m^3)
+                    self.densities = sp.interpolate.make_interp_spline(
+                        density_curve[:, 0].squeeze(),
+                        density_curve[:, 1].squeeze(),
+                        k=1
+                    )
+            case "moderate":
+                with importlib.resources.files("hohmannpy.resources").joinpath("circa_12_moderate_activity.csv").open() as f:
+                    density_curve = np.loadtxt(f, delimiter=",")  # altitude (km), density (kg/m^3)
+                    self.densities = sp.interpolate.make_interp_spline(
+                        density_curve[:, 0].squeeze(),
+                        density_curve[:, 1].squeeze(),
+                        k=1
+                    )
+            case "high":
+                with importlib.resources.files("hohmannpy.resources").joinpath("circa_12_high_activity.csv").open() as f:
+                    density_curve = np.loadtxt(f, delimiter=",")  # altitude (km), density (kg/m^3)
+                    self.densities = sp.interpolate.make_interp_spline(
+                        density_curve[:, 0].squeeze(),
+                        density_curve[:, 1].squeeze(),
+                        k=1
+                    )
+
+    def evaluate(self, time: float, state: np.ndarray) -> tuple[float, float, float]:
+        altitude = self.compute_altitude(state[:3])
+        density = self.densities(altitude)
+
+        earth_rot = 7.292115e-5  # Mean rotation rate of the Earth in radians.
+        velocity = state[3:] - np.cross(np.array([0, 0, earth_rot]), state[:3])
+
+        acceleration = -0.5 * self.ballistic_coeff ** density * np.linalg.norm(velocity) * velocity
+
+        return acceleration[0], acceleration[1], acceleration[2]
+
+    def compute_altitude(self, position):
+
+        return altitude
